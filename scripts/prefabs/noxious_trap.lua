@@ -13,7 +13,7 @@ local TRAP_PLACE_QUOTES = {
 local assets=
 {
     Asset("ANIM", "anim/noxious_trap.zip"),
-    
+
     Asset("IMAGE", "images/inventoryimages/noxious_trap.tex"),
     Asset("ATLAS", "images/inventoryimages/noxious_trap.xml"),
 }
@@ -50,8 +50,8 @@ local function findTarget(inst)
     local x, y, z = inst.Transform:GetWorldPosition()
     local ents = TheSim:FindEntities(x, y, z, DETECT_RADIUS, nil, DETECT_CANTTAGS, DETECT_MUSTONETAGS)
 
-    -- playerは爆発対象外
-    local nonTarget = TheNet:GetPVPEnabled() and "teemo" or "player"
+    -- DS版: シングルプレイなのでPvPは常にfalse → playerタグ除外
+    local nonTarget = "player"
     for k, v in pairs(ents) do
         if not v:HasTag(nonTarget) then
             stopSearchTask(inst)
@@ -123,10 +123,10 @@ local function onDeploy(inst, pt, deployer)
     startTrap(inst)
     inst.Physics:Teleport(pt:Get())
 
-    -- 設置時にdeployerのmoveボイスを再生
-    if deployer ~= nil and deployer._sound_move then
+    -- 設置時にdeployerのmoveボイスを再生（DS版: 直接再生）
+    if deployer ~= nil and deployer.SoundEmitter then
         if math.random() < 0.5 then
-            deployer._sound_move:push()
+            deployer.SoundEmitter:PlaySound("dontstarve/characters/teemo/move")
         end
     end
 end
@@ -150,24 +150,17 @@ end
 
 local function fn(Sim)
     local inst = CreateEntity()
-    
+
     inst.entity:AddTransform()
     inst.entity:AddAnimState()
     inst.entity:AddSoundEmitter()
-    inst.entity:AddNetwork()
     inst.entity:AddLight()
 
     MakeInventoryPhysics(inst)
-    
+
     inst.AnimState:SetBank("noxious_trap")
     inst.AnimState:SetBuild("noxious_trap")
     inst.AnimState:PlayAnimation("idle")
-
-    inst.entity:SetPristine()
-
-    if not TheWorld.ismastersim then
-        return inst
-    end
 
     inst:AddComponent("inspectable")
 
@@ -180,7 +173,7 @@ local function fn(Sim)
     inst:AddComponent("deployable")
     inst.components.deployable.ondeploy = onDeploy
     inst.components.deployable:SetDeploySpacing(DEPLOYSPACING.LESS)
-    
+
     -- 爆発ダメージ
     inst:AddComponent("explosive_noxious_trap")
 

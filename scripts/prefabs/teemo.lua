@@ -13,6 +13,17 @@ local NOXIOUS_TRAP_MAX_STACKS = NOXIOUS_TRAP_MAX_STACKS
 local NOXIOUS_TRAP_INITIAL_STACKS = 3
 local NOXIOUS_TRAP_RECOVERY_INTERVAL = 30
 
+-- DS版: ネットワーク変数の代替ラッパー（:value() / :set() API互換）
+local function NetVar(inst, event, initial)
+    local v = { _val = initial or 0 }
+    function v:value() return self._val end
+    function v:set(val)
+        self._val = val
+        inst:PushEvent(event)
+    end
+    return v
+end
+
 -- LoL テーモ ステルス発動時セリフ
 local CAMOUFLAGE_QUOTES = {
     "Become one with the jungle.",
@@ -48,7 +59,7 @@ local function mushroomStatsMod(inst, health_delta, hunger_delta, sanity_delta, 
     return health_delta, hunger_delta, sanity_delta
 end
 
--- Blind Dart射程円インジケーター（クライアント専用、ローカルプレイヤーのみ）
+-- Blind Dart射程円インジケーター
 local function createRangeIndicator(inst)
     local fx = CreateEntity()
     fx.entity:AddTransform()
@@ -183,7 +194,7 @@ local function checkCamouflage(inst)
         return
     end
 
-    -- 騎乗中はカモフラージュを無効化（ビーファロー、Woby、MOD追加マウント全対応）
+    -- 騎乗中はカモフラージュを無効化
     if inst.components.rider ~= nil and inst.components.rider:IsRiding() then
         disableCamouflage(inst)
         return
@@ -298,7 +309,9 @@ local function onDeath(inst, data)
     -- サモナースペルのクールダウンは死亡中も継続（LoL準拠）
 end
 
-local common_postinit = function(inst)
+-- DS版: common_postinit と master_postinit を統合した単一の customfn
+local function customfn(inst)
+    -- === common_postinit 相当 ===
     inst.soundsname = "teemo"
     inst.MiniMapEntity:SetIcon( "teemo.tex" )
     inst:AddTag("teemo")
@@ -306,45 +319,20 @@ local common_postinit = function(inst)
     -- talk_LPを1回再生に変更（ループ・途中停止を防止）
     inst:ListenForEvent("ontalk", function()
         inst:DoTaskInTime(0, function()
-            -- ステートグラフが開始したループ再生を停止
             inst.SoundEmitter:KillSound("talk")
-            -- 前回のボイスを停止してから1回再生
             inst.SoundEmitter:KillSound("teemo_voice")
             inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/talk_LP", "teemo_voice")
         end)
     end)
 
-    -- ノクサストラップ スタック数ネットワーク変数（クライアント同期用）
-    inst._noxiousTrapStacks = net_byte(inst.GUID, "teemo._noxiousTrapStacks", "noxioustrapstacksdirty")
+    -- DS版: NetVarラッパーでネットワーク変数を代替
+    inst._noxiousTrapStacks = NetVar(inst, "noxioustrapstacksdirty", 0)
+    inst._flashCooldown = NetVar(inst, "flashcooldowndirty", 0)
+    inst._igniteCooldown = NetVar(inst, "ignitecooldowndirty", 0)
 
-    -- サモナースペル クールダウン ネットワーク変数（クライアント同期用）
-    inst._flashCooldown = net_ushortint(inst.GUID, "teemo._flashCooldown", "flashcooldowndirty")
-    inst._igniteCooldown = net_ushortint(inst.GUID, "teemo._igniteCooldown", "ignitecooldowndirty")
-
-    -- サーバーからクライアントへのサウンド通知用 net_event
-    inst._sound_spwn   = net_event(inst.GUID, "teemo._sound_spwn")
-    inst._sound_attack = net_event(inst.GUID, "teemo._sound_attack")
-    inst._sound_emote  = net_event(inst.GUID, "teemo._sound_emote")
-    inst._sound_move   = net_event(inst.GUID, "teemo._sound_move")
-
-    inst:ListenForEvent("teemo._sound_spwn", function()
-        inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/spwn")
-    end)
-    inst:ListenForEvent("teemo._sound_attack", function()
-        inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/attack")
-    end)
-    inst:ListenForEvent("teemo._sound_emote", function()
-        inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/emote")
-    end)
-    inst:ListenForEvent("teemo._sound_move", function()
-        inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/move")
-    end)
-
-    -- 上向き攻撃時にblind_dartが体の下にはみ出る対策（クライアント側）
-    -- 3フレーム間隔（100ms）: 毎フレーム実行の負荷を軽減しつつ、視覚的な遅延は人間に知覚できないレベル
+    -- 上向き攻撃時にblind_dartが体の下にはみ出る対策
     inst._dartHiding = false
     inst:DoPeriodicTask(3 * FRAMES, function()
-        -- 上向き攻撃時にblind_dartが体の下にはみ出る対策
         if inst:HasTag("blind_dart_equipped") then
             local isUp = inst.AnimState:GetCurrentFacing() == FACING_UP
             local isAttacking = inst.AnimState:IsCurrentAnimation("dart")
@@ -371,18 +359,14 @@ local common_postinit = function(inst)
         end
     end)
 
-    -- 射程円インジケーター生成（ローカルプレイヤーのみ、設定でON時）
-    if not TheNet:IsDedicated() and TEEMO_SHOW_RANGE_INDICATOR then
+    -- 射程円インジケーター生成（設定でON時）
+    if TEEMO_SHOW_RANGE_INDICATOR then
         inst:DoTaskInTime(0, function()
-            if inst ~= ThePlayer then return end
             inst._rangeIndicator = createRangeIndicator(inst)
         end)
     end
-end
 
-
-local master_postinit = function(inst)
-
+    -- === master_postinit 相当 ===
     inst.components.health:SetMaxHealth(TEEMO_HEALTH)
     inst.components.hunger:SetMax(TEEMO_HUNGER)
     inst.components.sanity:SetMax(TEEMO_SANITY)
@@ -399,10 +383,10 @@ local master_postinit = function(inst)
     -- modmain.lua等の外部スクリプトからカモフラージュ解除を呼べるよう公開
     inst.disableCamouflage = function() disableCamouflage(inst) end
 
-    -- スポーン時にspwnボイスを再生
+    -- スポーン時にspwnボイスを再生（DS版: 直接再生）
     inst:DoTaskInTime(0.5, function()
         if inst:IsValid() then
-            inst._sound_spwn:push()
+            inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/spwn")
         end
     end)
 
@@ -414,32 +398,30 @@ local master_postinit = function(inst)
     inst:ListenForEvent("oneaten", function() disableCamouflage(inst) end)
     inst:ListenForEvent("working", function()
         disableCamouflage(inst)
-        -- 作業時に一定確率でemoteボイスを再生
+        -- 作業時に一定確率でemoteボイスを再生（DS版: 直接再生）
         if math.random() < 0.25 then
-            inst._sound_emote:push()
+            inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/emote")
         end
     end)
-    -- 採取時に一定確率でemoteボイスを再生
     inst:ListenForEvent("picksomething", function()
         if math.random() < 0.25 then
-            inst._sound_emote:push()
+            inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/emote")
         end
     end)
-    -- 収穫時に一定確率でemoteボイスを再生
     inst:ListenForEvent("harvest", function()
         if math.random() < 0.25 then
-            inst._sound_emote:push()
+            inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/emote")
         end
     end)
     inst:ListenForEvent("onattackother", function(inst, data)
         disableCamouflage(inst)
-        -- Blind Dart攻撃時、GetAttackedの前に毒マークを設定（初撃即死でも食料腐敗を適用）
+        -- Blind Dart攻撃時、GetAttackedの前に毒マークを設定
         if data and data.weapon and data.weapon:HasTag("blowdart") and data.target then
             TeemoPoison.markTeemoPoisoned(data.target)
         end
-        -- 攻撃時に一定確率でattackボイスを再生
+        -- 攻撃時に一定確率でattackボイスを再生（DS版: 直接再生）
         if math.random() < 0.15 then
-            inst._sound_attack:push()
+            inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/attack")
         end
     end)
     inst:ListenForEvent("attacked", onAttacked)
@@ -448,10 +430,10 @@ local master_postinit = function(inst)
         startPassive(inst)
         startNoxiousTrapRecovery(inst)
         startSpellCooldownTask(inst)
-        -- リスポーン時にspwnボイスを再生
+        -- リスポーン時にspwnボイスを再生（DS版: 直接再生）
         inst:DoTaskInTime(0.5, function()
             if inst:IsValid() then
-                inst._sound_spwn:push()
+                inst.SoundEmitter:PlaySound("dontstarve/characters/teemo/spwn")
             end
         end)
     end)
@@ -504,4 +486,5 @@ local master_postinit = function(inst)
 
 end
 
-return MakePlayerCharacter("teemo", prefabs, assets, common_postinit, master_postinit, start_inv)
+-- DS版: 5引数（common_postinit + master_postinit → customfn に統合）
+return MakePlayerCharacter("teemo", prefabs, assets, customfn, start_inv)

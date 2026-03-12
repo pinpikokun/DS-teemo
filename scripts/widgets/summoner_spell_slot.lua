@@ -11,7 +11,7 @@ local SummonerSpellSlot = Class(Widget, function(self, owner, config)
     self.icon_atlas = config.icon_atlas
     self.icon_tex = config.icon_tex
     self.cooldown_event = config.cooldown_event  -- net変数の変更イベント名
-    self.on_activate = config.on_activate        -- 発動時コールバック（クライアント側）
+    self.on_activate = config.on_activate        -- 発動時コールバック
 
     -- インベントリスロットと同じ背景
     self.bgimage = self:AddChild(Image("images/hud.xml", "inv_slot.tex"))
@@ -95,11 +95,14 @@ function SummonerSpellSlot:StartFlashTargeting()
     end
     self._flashTargeting = true
 
-    -- レティクル（地面マーカー）を生成 — DST標準のAoEターゲティング円を使用
-    local reticule = SpawnPrefab("reticuleaoe")
+    -- レティクル（地面マーカー）を生成 — DS版: reticuleプレファブを使用
+    local reticule = SpawnPrefab("reticule")
     reticule.AnimState:SetScale(0.5, 0.5, 0.5)
-    reticule.AnimState:SetMultColour(0.3, 0.7, 1.0, 1)
-    reticule.AnimState:SetBloomEffectHandle("shaders/anim.ksh")
+    if reticule.components.colourtweener then
+        reticule.components.colourtweener:StartTween({0.3, 0.7, 1.0, 1}, 0)
+    else
+        reticule.AnimState:SetMultColour(0.3, 0.7, 1.0, 1)
+    end
     self._reticule = reticule
 
     -- マウス移動でレティクル位置を更新 + 範囲外なら赤色に変更
@@ -114,10 +117,18 @@ function SummonerSpellSlot:StartFlashTargeting()
                 local dist = math.sqrt(dx * dx + dz * dz)
                 if dist <= maxRange then
                     -- 範囲内: 青
-                    self._reticule.AnimState:SetMultColour(0.3, 0.7, 1.0, 1)
+                    if self._reticule.components.colourtweener then
+                        self._reticule.components.colourtweener:StartTween({0.3, 0.7, 1.0, 1}, 0)
+                    else
+                        self._reticule.AnimState:SetMultColour(0.3, 0.7, 1.0, 1)
+                    end
                 else
                     -- 範囲外: 赤
-                    self._reticule.AnimState:SetMultColour(1.0, 0.2, 0.2, 1)
+                    if self._reticule.components.colourtweener then
+                        self._reticule.components.colourtweener:StartTween({1.0, 0.2, 0.2, 1}, 0)
+                    else
+                        self._reticule.AnimState:SetMultColour(1.0, 0.2, 0.2, 1)
+                    end
                 end
             end
         end
@@ -144,7 +155,8 @@ function SummonerSpellSlot:StartFlashTargeting()
         if button == MOUSEBUTTON_LEFT then
             local pos = TheInput:GetWorldPosition()
             if pos then
-                SendModRPCToServer(MOD_RPC["teemo"]["use_flash"], pos.x, pos.z)
+                -- DS版: 直接関数呼び出し（RPC不要）
+                TeemoUseFlash(self.owner, pos.x, pos.z)
             end
             self:StopFlashTargeting()
             return true -- イベント消費

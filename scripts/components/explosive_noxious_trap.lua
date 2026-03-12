@@ -86,11 +86,8 @@ function Explosive_Noxious_Trap:OnBurnt()
         counterPlayer.components.talker:Say(TRAP_EXPLODE_QUOTES[math.random(#TRAP_EXPLODE_QUOTES)])
     end
 
-    -- playerは爆発対象外
+    -- DS版: シングルプレイなのでPvPは常にfalse → playerタグ除外
     local nonTarget = "player"
-    if TheNet:GetPVPEnabled() then
-        nonTarget = "teemo"
-    end
 
     local ents = TheSim:FindEntities(x, y, z, self.explosiveRange)
     for k, v in pairs(ents) do

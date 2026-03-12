@@ -1,4 +1,4 @@
-local assets = 
+local assets =
 {
     Asset("ANIM", "anim/blind_effect.zip")
 }
@@ -12,18 +12,11 @@ local function fn(Sim)
 
     inst.entity:AddTransform()
     inst.entity:AddAnimState()
-    inst.entity:AddNetwork()
 
     inst.AnimState:SetBank("forcefield")
     inst.AnimState:SetBuild("blind_effect")
     inst.AnimState:PlayAnimation("open")
     inst.AnimState:PushAnimation("idle_loop", true)
-
-    inst.entity:SetPristine()
-
-    if not TheWorld.ismastersim then
-        return inst
-    end
 
     inst.persists = false
     inst.kill_fx = kill_fx

@@ -240,7 +240,6 @@ local function fn()
 
     inst.entity:AddTransform()
     inst.entity:AddAnimState()
-    inst.entity:AddNetwork()
 
     MakeProjectilePhysics(inst)
 
@@ -249,12 +248,6 @@ local function fn()
     inst.AnimState:PlayAnimation("idle_pipe")
 
     inst:AddTag("projectile")
-
-    inst.entity:SetPristine()
-
-    if not TheWorld.ismastersim then
-        return inst
-    end
 
     inst.persists = false
 

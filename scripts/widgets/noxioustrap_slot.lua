@@ -62,7 +62,8 @@ end
 function NoxiousTrapSlot:OnClick()
     local stacks = self.owner._noxiousTrapStacks:value()
     if stacks > 0 then
-        SendModRPCToServer(MOD_RPC["teemo"]["use_noxious_trap_stack"])
+        -- DS版: 直接関数呼び出し（RPC不要）
+        TeemoUseNoxiousTrapStack(self.owner)
     end
 end
 

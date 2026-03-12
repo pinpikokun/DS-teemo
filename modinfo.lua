@@ -8,22 +8,18 @@ version = "0.9.0"
 forumthread = ""
 
 -- This lets other players know if your mod is out of date, update it to match the current version in the game
-api_version = 10
+api_version = 6
 
--- 互換性無し
-dont_starve_compatible = false
-reign_of_giants_compatible = false
-dst_compatible = true
+-- DS版互換性
+dont_starve_compatible = true
+reign_of_giants_compatible = true
+shipwrecked_compatible = true
+hamlet_compatible = true
+dst_compatible = false
 
 -- MODアイコン
 icon_atlas = "modicon.xml"
 icon = "modicon.tex"
-
--- クライアントに必要か
-all_clients_require_mod = true
-clients_only_mod = false
-
-server_filter_tags = {"teemo"}
 
 configuration_options = {
     {name = "", label = "Character Stats", hover = "", options = {{description = "", data = 0}}, default = 0},

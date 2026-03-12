@@ -53,11 +53,10 @@ end
 
 local function fn(Sim)
     local inst = CreateEntity()
-    
+
     inst.entity:AddTransform()
     inst.entity:AddAnimState()
     inst.entity:AddSoundEmitter()
-    inst.entity:AddNetwork()
 
     MakeInventoryPhysics(inst)
 
@@ -68,12 +67,6 @@ local function fn(Sim)
     inst:AddTag("blowdart")
     inst:AddTag("sharp")
 
-    inst.entity:SetPristine()
-
-    if not TheWorld.ismastersim then
-        return inst
-    end
-    
     inst:AddComponent("weapon")
     inst.components.weapon:SetDamage(0) -- 左クリック近接は0ダメージ（右クリックでprojectile発射）
 
@@ -91,8 +84,10 @@ local function fn(Sim)
         inst.components.finiteuses:SetOnFinished(function(inst)
             inst:DoTaskInTime(0, function() inst:Remove() end)
         end)
-        -- 攻撃時の自動消費を無効化（被ダメージ時のみ手動で減少させる）
-        inst.components.finiteuses:SetIgnoreCombatDurabilityLoss(true)
+        -- DS版: SetIgnoreCombatDurabilityLoss は存在しない可能性があるためpcallで安全に呼ぶ
+        if inst.components.finiteuses.SetIgnoreCombatDurabilityLoss then
+            inst.components.finiteuses:SetIgnoreCombatDurabilityLoss(true)
+        end
     end
 
     inst:AddComponent("equippable")
@@ -105,7 +100,7 @@ local function fn(Sim)
     end
     inst.components.characterspecific:SetOwner("teemo")
     inst.components.characterspecific:SetStorable(true)
-    inst.components.characterspecific:SetComment("Captain Teemo on duty!") 
+    inst.components.characterspecific:SetComment("Captain Teemo on duty!")
 
     return inst
 end
