@@ -105,47 +105,17 @@ return {
     
     BATTLECRY =
     {
-        GENERIC =
-        {
-            "Take the pain!",
-            "Natural-born killer.",
-            "Turns out, I got a proficiency in killing.",
-            "Death has a name.",
-            "I settle my scores.",
-            "This'll be messy.",
-            "Time for the long nap.",
-            "Sight. Shoot. Reload.",
-            "Look alive.",
-            "Killing's all I'm good at.",
-            "I'm taking everyone with me!",
-            "Let 'em die slow.",
-            "Mete out the pain.",
-            "This is gonna sting.",
-            "There's no such thing as collateral damage.",
-            "Hut two three four.",
-            "This one's for Johnny!",
-            "This one's for my helmet brother!",
-            "Swiftly!",
-            "Who's my next tally mark?",
-            "Let the poison do its work.",
-            "Yes sir!",
-            "Smell that? That's fear.",
-            "This is very personal.",
-            "That's gotta sting.",
-            "I don't feel anything.",
-            "This is where we draw the line.",
-        },
+        GENERIC = "Take the pain!",
+        PIG = "Hut two three four.",
+        PREY = "Let the poison do its work.",
+        SPIDER = "This is gonna sting.",
+        SPIDER_WARRIOR = "That's gotta sting.",
     },
     COMBAT_QUIT =
     {
-        GENERIC =
-        {
-            "Size is a liability.",
-            "Fighting fair is a good way to die.",
-            "Reinforcements ain't comin'.",
-            "Never underestimate the power of the Scout's code.",
-            "Take a long walk through the jungle!",
-        },
+        GENERIC = "Size is a liability.",
+        PIG = "Fighting fair is a good way to die.",
+        SPIDER = "Never underestimate the power of the Scout's code.",
     },
     DESCRIBE =
     {

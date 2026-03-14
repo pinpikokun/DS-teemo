@@ -172,7 +172,7 @@ local function fn(Sim)
     -- トラップ設置
     inst:AddComponent("deployable")
     inst.components.deployable.ondeploy = onDeploy
-    inst.components.deployable:SetDeploySpacing(DEPLOYSPACING.LESS)
+    inst.components.deployable.min_spacing = 1
 
     -- 爆発ダメージ
     inst:AddComponent("explosive_noxious_trap")

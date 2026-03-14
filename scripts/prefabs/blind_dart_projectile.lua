@@ -59,7 +59,11 @@ local function doBlind(target)
     -- 移動可能なクリーチャーのみブラインド（壁・構造物は除外）
     if target.components.combat and target.components.locomotor then
         -- 攻撃力を0にする（攻撃モーションは行うがダメージが通らない = 空振り）
-        target.components.combat.externaldamagemultipliers:SetModifier(target, 0, "teemo_blind")
+        -- DS版: externaldamagemultipliersが無いため、damagemultiplierを直接操作
+        if target._teemo_orig_dmgmult == nil then
+            target._teemo_orig_dmgmult = target.components.combat.damagemultiplier or 1
+        end
+        target.components.combat.damagemultiplier = 0
 
         -- 既存のブラインド解除タスクをキャンセル
         if target._teemoBlindTask ~= nil then
@@ -69,7 +73,8 @@ local function doBlind(target)
         -- 3秒後に攻撃力を復元
         target._teemoBlindTask = target:DoTaskInTime(3.0, function(target)
             if target:IsValid() and target.components.combat then
-                target.components.combat.externaldamagemultipliers:RemoveModifier(target, "teemo_blind")
+                target.components.combat.damagemultiplier = target._teemo_orig_dmgmult or 1
+                target._teemo_orig_dmgmult = nil
             end
             target._teemoBlindTask = nil
         end)
@@ -179,8 +184,9 @@ local function onhit(inst, owner, target)
             end
         end
         -- 初撃のみ怯み、2撃目以降は怯みなし（LoL準拠: AAにスタンなし）
+        -- ただし構造物（locomotorなし）は常にGetAttackedで反応させる（蜂の巣等）
         local valid_attacker = attacker ~= nil and attacker:IsValid() and attacker or nil
-        if not target._teemo_dart_flinched then
+        if not target._teemo_dart_flinched or not target.components.locomotor then
             target._teemo_dart_flinched = true
             target.components.combat:GetAttacked(valid_attacker, damage, weapon)
         else
@@ -200,7 +206,8 @@ local function onhit(inst, owner, target)
     -- 3. ブラインド効果（CD10秒）
     if target ~= nil and target:IsValid() and weapon and weapon:IsValid() and weapon:HasTag("blowdart") then
         local now = GetTime()
-        if weapon._lastBlindTime == nil or now - weapon._lastBlindTime >= 10 then
+        if target.components.locomotor
+            and (weapon._lastBlindTime == nil or now - weapon._lastBlindTime >= 10) then
             doBlind(target)
             weapon._lastBlindTime = now
             if target.blindEffect ~= nil then
@@ -241,7 +248,8 @@ local function fn()
     inst.entity:AddTransform()
     inst.entity:AddAnimState()
 
-    MakeProjectilePhysics(inst)
+    MakeInventoryPhysics(inst)
+    RemovePhysicsColliders(inst)
 
     inst.AnimState:SetBank("blow_dart")
     inst.AnimState:SetBuild("blow_dart")

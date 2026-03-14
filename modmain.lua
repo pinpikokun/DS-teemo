@@ -176,7 +176,7 @@ TEEMO_SHOOT_DART.fn = function(act)
     if doer == nil or not doer:IsValid() then return false end
 
     local target = act.target
-    local target_pos = act:GetActionPoint()
+    local target_pos = act.pos
 
     local proj = GLOBAL.SpawnPrefab("blind_dart_projectile")
     if proj == nil then return false end
@@ -206,7 +206,7 @@ TEEMO_SHOOT_DART.fn = function(act)
             local dx, dz = px - x, pz - z
             local dist_sq = dx * dx + dz * dz
             local search_radius = dist_sq <= 16 and 3 or dist_sq <= 25 and 2 or 1
-            local ents = GLOBAL.TheSim:FindEntities(px, py, pz, search_radius, { "_combat" }, { "player", "INLIMBO" })
+            local ents = GLOBAL.TheSim:FindEntities(px, py, pz, search_radius, nil, { "player", "INLIMBO" })
             local best_target = nil
             local best_dist = math.huge
             for _, ent in pairs(ents) do
@@ -279,7 +279,7 @@ AddComponentPostInit("weapon", function(self)
         self.CollectEquippedActions = function(self, doer, target, actions, right)
             if right and self.inst:HasTag("blowdart") and doer:HasTag("teemo")
                 and not (doer.components.rider and doer.components.rider:IsRiding())
-                and target and target ~= doer and target:HasTag("_combat") then
+                and target and target ~= doer and target.components.combat then
                 table.insert(actions, GLOBAL.ACTIONS.TEEMO_SHOOT_DART)
             end
         end
@@ -289,7 +289,7 @@ AddComponentPostInit("weapon", function(self)
             _orig_equipped(self, doer, target, actions, right)
             if right and self.inst:HasTag("blowdart") and doer:HasTag("teemo")
                 and not (doer.components.rider and doer.components.rider:IsRiding())
-                and target and target ~= doer and target:HasTag("_combat") then
+                and target and target ~= doer and target.components.combat then
                 table.insert(actions, GLOBAL.ACTIONS.TEEMO_SHOOT_DART)
             end
         end
@@ -331,12 +331,12 @@ AddStategraphState("wilson", GLOBAL.State {
 
         if target ~= nil and target:IsValid() then
             inst:FacePoint(target.Transform:GetWorldPosition())
-        elseif buffaction then
-            local pos = buffaction:GetActionPoint()
-            if pos then inst:FacePoint(pos:Get()) end
+        elseif buffaction and buffaction.pos then
+            inst:FacePoint(buffaction.pos:Get())
         end
 
         inst.sg.statemem.action = buffaction
+        inst:ClearBufferedAction()
         inst.sg:SetTimeout(inst.components.combat.min_attack_period)
     end,
 
@@ -417,6 +417,13 @@ STRINGS.RECIPE_DESC.BLIND_DART = "A toxic blowdart that blinds enemies.\nLoses d
 -- アイテムの名前 item name
 STRINGS.NAMES.NOXIOUS_TRAP = "Noxious Trap"
 
+-- DS版: IsPassableAtPoint 互換ヘルパー（GetTileAtPoint で地形チェック）
+local GROUND = GLOBAL.GROUND
+local function isPassableAtPoint(x, y, z)
+    local tile = GLOBAL.GetWorld().Map:GetTileAtPoint(x, y, z)
+    return tile ~= GROUND.IMPASSABLE and tile ~= GROUND.INVALID and tile ~= nil
+end
+
 -- ========== サモナースペル: フラッシュ（DS版: ローカル関数、RPC不要） ==========
 local function useFlash(player, x, z)
     if not player:HasTag("teemo") then return end
@@ -439,7 +446,7 @@ local function useFlash(player, x, z)
     end
 
     -- 目的地が歩行不可の場合の壁抜け判定（LoL準拠）
-    if not GLOBAL.GetWorld().Map:IsPassableAtPoint(tx, 0, tz) then
+    if not isPassableAtPoint(tx, 0, tz) then
         local dir_x, dir_z = dx, dz
         local len = math.sqrt(dir_x * dir_x + dir_z * dir_z)
         if len > 0 then
@@ -452,7 +459,7 @@ local function useFlash(player, x, z)
         for d = checkDist + 0.5, checkDist + 3, 0.5 do
             local cx = px + dir_x * d
             local cz = pz + dir_z * d
-            if GLOBAL.GetWorld().Map:IsPassableAtPoint(cx, 0, cz) then
+            if isPassableAtPoint(cx, 0, cz) then
                 tx, tz = cx, cz
                 wallFlashFound = true
                 break
@@ -465,7 +472,7 @@ local function useFlash(player, x, z)
             for d = checkDist, 0.5, -0.5 do
                 local cx = px + dir_x * d
                 local cz = pz + dir_z * d
-                if GLOBAL.GetWorld().Map:IsPassableAtPoint(cx, 0, cz) then
+                if isPassableAtPoint(cx, 0, cz) then
                     tx, tz = cx, cz
                     found = true
                     break
@@ -486,7 +493,7 @@ local function useFlash(player, x, z)
     player:AddTag("busy")
 
     -- 出発エフェクト
-    local puff = GLOBAL.SpawnPrefab("shadow_puff")
+    local puff = GLOBAL.SpawnPrefab("sand_puff")
     if puff ~= nil then
         puff.Transform:SetPosition(px, py, pz)
     end
@@ -516,7 +523,7 @@ local function useIgnite(player)
     -- 敵意のある対象から最も近い単体を選択
     local target = nil
     local closestDist = math.huge
-    local ents = GLOBAL.TheSim:FindEntities(x, y, z, range, {"_combat"})
+    local ents = GLOBAL.TheSim:FindEntities(x, y, z, range)
     for _, v in pairs(ents) do
         if v ~= player
             and v.components.combat
@@ -662,8 +669,8 @@ GLOBAL.TeemoUseNoxiousTrapStack = useNoxiousTrapStack
 AddClassPostConstruct("widgets/inventorybar", function(self)
     if not self.owner:HasTag("teemo") then return end
 
-    local NoxiousTrapSlot = require("widgets/noxioustrap_slot")
-    local SummonerSpellSlot = require("widgets/summoner_spell_slot")
+    local NoxiousTrapSlot = GLOBAL.require("widgets/noxioustrap_slot")
+    local SummonerSpellSlot = GLOBAL.require("widgets/summoner_spell_slot")
 
     local _Rebuild = self.Rebuild
     self.Rebuild = function(self, ...)

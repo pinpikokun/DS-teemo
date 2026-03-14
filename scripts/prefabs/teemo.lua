@@ -99,7 +99,7 @@ local function doCamouflage(inst)
         inst.DynamicShadow:Enable(false)
 
         -- カモフラージュ発動エフェクト（砂煙）
-        local puff = SpawnPrefab("shadow_puff")
+        local puff = SpawnPrefab("sand_puff")
         if puff ~= nil then
             puff.Transform:SetPosition(inst.Transform:GetWorldPosition())
         end
@@ -113,12 +113,11 @@ local function doCamouflage(inst)
         inst.Physics:ClearCollisionMask()
         inst.Physics:CollidesWith(COLLISION.WORLD)
         inst.Physics:CollidesWith(COLLISION.OBSTACLES)
-        inst.Physics:CollidesWith(COLLISION.SMALLOBSTACLES)
 
         -- ステルス中、敵の攻撃を継続的にブロック（ターゲットは維持）
         local function blankNearbyAttacks()
             local x,y,z = inst.Transform:GetWorldPosition()
-            local ents = TheSim:FindEntities(x, y, z, 20, {"_combat"})
+            local ents = TheSim:FindEntities(x, y, z, 20)
             for k,v in pairs(ents) do
                 if v.components.combat and v.components.combat.target == inst then
                     v.components.combat:BlankOutAttacks(1)
@@ -157,9 +156,7 @@ local function disableCamouflage(inst)
     inst.Physics:ClearCollisionMask()
     inst.Physics:CollidesWith(COLLISION.WORLD)
     inst.Physics:CollidesWith(COLLISION.OBSTACLES)
-    inst.Physics:CollidesWith(COLLISION.SMALLOBSTACLES)
     inst.Physics:CollidesWith(COLLISION.CHARACTERS)
-    inst.Physics:CollidesWith(COLLISION.GIANTS)
 
     -- ステルス中の攻撃ブロックを停止
     if inst._blankOutTask then
@@ -341,10 +338,10 @@ local function customfn(inst)
             if isUp and isAttacking then
                 if not inst._dartHiding then
                     inst._dartHiding = true
-                    inst.AnimState:SetSymbolMultColour("swap_object", 0, 0, 0, 0)
+                    inst.AnimState:Hide("swap_object")
                 end
             elseif inst._dartHiding then
-                inst.AnimState:SetSymbolMultColour("swap_object", 1, 1, 1, 1)
+                inst.AnimState:Show("swap_object")
                 inst._dartHiding = false
             end
         end

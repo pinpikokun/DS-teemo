@@ -97,7 +97,7 @@ function SummonerSpellSlot:StartFlashTargeting()
 
     -- レティクル（地面マーカー）を生成 — DS版: reticuleプレファブを使用
     local reticule = SpawnPrefab("reticule")
-    reticule.AnimState:SetScale(0.5, 0.5, 0.5)
+    reticule.AnimState:SetScale(1.5, 1.5, 1.5)
     if reticule.components.colourtweener then
         reticule.components.colourtweener:StartTween({0.3, 0.7, 1.0, 1}, 0)
     else
@@ -148,23 +148,31 @@ function SummonerSpellSlot:StartFlashTargeting()
     end)
 
     -- マウスクリックでテレポート or キャンセル
-    self._clickHandler = TheInput:AddMouseButtonHandler(function(button, down, x, y)
-        if not self._flashTargeting then return false end
-        if not down then return false end
+    -- DS版: ポーリングで左クリックを検出（AddMouseButtonHandlerが不安定なため）
+    self._flashClickReady = false
+    self._pollTask = self.owner:DoPeriodicTask(FRAMES, function()
+        if not self._flashTargeting then return end
 
-        if button == MOUSEBUTTON_LEFT then
+        local lmb = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
+        local rmb = TheInput:IsMouseDown(MOUSEBUTTON_RIGHT)
+
+        if not self._flashClickReady then
+            -- 初回: アイコンクリックのマウスが離されるまで待つ
+            if not lmb then
+                self._flashClickReady = true
+            end
+            return
+        end
+
+        if lmb then
             local pos = TheInput:GetWorldPosition()
             if pos then
-                -- DS版: 直接関数呼び出し（RPC不要）
                 TeemoUseFlash(self.owner, pos.x, pos.z)
             end
             self:StopFlashTargeting()
-            return true -- イベント消費
-        elseif button == MOUSEBUTTON_RIGHT then
+        elseif rmb then
             self:StopFlashTargeting()
-            return true
         end
-        return false
     end)
 end
 
@@ -180,9 +188,9 @@ function SummonerSpellSlot:StopFlashTargeting()
         self._moveHandler:Remove()
         self._moveHandler = nil
     end
-    if self._clickHandler then
-        self._clickHandler:Remove()
-        self._clickHandler = nil
+    if self._pollTask then
+        self._pollTask:Cancel()
+        self._pollTask = nil
     end
     if self._keyHandler then
         self._keyHandler:Remove()
