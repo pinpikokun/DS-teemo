@@ -248,8 +248,7 @@ local function fn()
     inst.entity:AddTransform()
     inst.entity:AddAnimState()
 
-    MakeInventoryPhysics(inst)
-    RemovePhysicsColliders(inst)
+    MakeProjectilePhysics(inst)
 
     inst.AnimState:SetBank("blow_dart")
     inst.AnimState:SetBuild("blow_dart")
@@ -266,7 +265,7 @@ local function fn()
     inst.components.projectile:SetOnHitFn(onhit)
     inst.components.projectile:SetOnMissFn(inst.Remove)
     inst.components.projectile:SetOnThrownFn(onthrown)
-    inst.components.projectile:SetLaunchOffset(Vector3(3, 0.5, 0))
+    inst.components.projectile:SetLaunchOffset(Vector3(0, 1.5, 0))
 
     return inst
 end

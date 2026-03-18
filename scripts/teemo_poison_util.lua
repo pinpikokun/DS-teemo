@@ -1,26 +1,28 @@
 -- Teemo Poison Loot Utility
 -- 毒状態で死んだ敵のドロップ食料を腐敗させる
+-- DS版: loot_prefab_spawned イベントが存在しないため、
+--       LootDropper:SpawnLootPrefab を直接フックして腐敗処理を挟む
 
-local function onLootSpawned(inst, data)
+local function spoilLoot(loot)
     -- 設定で無効化されている場合はスキップ
     if TEEMO_POISON_SPOIL_PERCENT == nil or TEEMO_POISON_SPOIL_PERCENT <= 0 then
         return
     end
 
-    if data.loot == nil then return end
+    if loot == nil then return end
 
     -- 食用かつ腐敗可能なアイテムのみ対象
-    if data.loot.components.edible == nil then return end
-    if data.loot.components.perishable == nil then return end
+    if loot.components.edible == nil then return end
+    if loot.components.perishable == nil then return end
 
     -- 中心値 ± 15% のランダムで鮮度を決定（0〜1にクランプ）
     local variance = (math.random() * 2 - 1) * 0.15
     local spoilPercent = math.max(0, math.min(1, TEEMO_POISON_SPOIL_PERCENT + variance))
 
     -- 現在の鮮度がランダム値より高い場合のみ腐敗させる
-    local currentPercent = data.loot.components.perishable:GetPercent()
+    local currentPercent = loot.components.perishable:GetPercent()
     if currentPercent > spoilPercent then
-        data.loot.components.perishable:SetPercent(spoilPercent)
+        loot.components.perishable:SetPercent(spoilPercent)
     end
 end
 
@@ -28,7 +30,18 @@ local function markTeemoPoisoned(target)
     if not target:IsValid() then return end
     if target._teemoPoisoned then return end
     target._teemoPoisoned = true
-    target:ListenForEvent("loot_prefab_spawned", onLootSpawned)
+
+    -- LootDropper:SpawnLootPrefab をフックしてドロップ食料を腐敗させる
+    if target.components.lootdropper and not target._teemoOrigSpawnLootPrefab then
+        target._teemoOrigSpawnLootPrefab = target.components.lootdropper.SpawnLootPrefab
+        target.components.lootdropper.SpawnLootPrefab = function(self, lootprefab, pt)
+            local loot = target._teemoOrigSpawnLootPrefab(self, lootprefab, pt)
+            if loot then
+                spoilLoot(loot)
+            end
+            return loot
+        end
+    end
 end
 
 local function unmarkTeemoPoisoned(target)
@@ -38,7 +51,12 @@ local function unmarkTeemoPoisoned(target)
     if target.noxiousTrapDamageTask ~= nil then return end
     if not target._teemoPoisoned then return end
     target._teemoPoisoned = nil
-    target:RemoveEventCallback("loot_prefab_spawned", onLootSpawned)
+
+    -- LootDropper フックを解除
+    if target._teemoOrigSpawnLootPrefab and target.components.lootdropper then
+        target.components.lootdropper.SpawnLootPrefab = target._teemoOrigSpawnLootPrefab
+        target._teemoOrigSpawnLootPrefab = nil
+    end
 end
 
 return {

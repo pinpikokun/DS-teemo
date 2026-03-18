@@ -346,11 +346,13 @@ AddStategraphState("wilson", GLOBAL.State {
     end,
 
     timeline = {
-        GLOBAL.TimeEvent(6 * GLOBAL.FRAMES, function(inst)
+        GLOBAL.TimeEvent(10 * GLOBAL.FRAMES, function(inst)
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/blowdart_shoot")
+        end),
+        GLOBAL.TimeEvent(14 * GLOBAL.FRAMES, function(inst)
             inst.sg:RemoveStateTag("abouttoattack")
             inst.bufferedaction = inst.sg.statemem.action
             inst:PerformBufferedAction()
-            inst.SoundEmitter:PlaySound("dontstarve/wilson/blowdart_shoot")
         end),
     },
 
